@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# enterprise-gateway — BASE configuration (shared by ALL profiles)
+# ─────────────────────────────────────────────────────────────────────────────
+
+server:
+  port: 9000
+
+spring:
+  application:
+    name: enterprise-gateway
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

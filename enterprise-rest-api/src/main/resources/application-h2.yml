@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PROFILE: h2
+# Fully self-contained — no MySQL, no Kafka, no Gateway required.
+# Perfect for CI pipelines and rapid local testing.
+# Activate: mvn spring-boot:run -Dspring-boot.run.profiles=h2
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:enterprise_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true                        # browse at http://localhost:8080/h2-console
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop                # H2 owns the schema in this profile
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  flyway:
+    enabled: false                         # H2 uses ddl-auto instead; Flyway SQL is MySQL-specific
+
+  # Kafka is disabled in h2 profile — see KafkaConfig @ConditionalOnProperty
+  kafka:
+    enabled: false
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Uses a self-signed key for local testing — no Gateway service needed
+          jwk-set-uri: http://localhost:9000/oauth2/jwks
+          issuer-uri: http://localhost:9000
+
+  # Disable OAuth2 resource server auto-config in h2 so the app boots without a Gateway
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+
+logging:
+  level:
+    com.enterprise: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PROFILE: local
+# Use when running directly on your machine with a local MySQL and Kafka.
+# Activate: mvn spring-boot:run -Dspring-boot.run.profiles=local
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/enterprise_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:enterprise_user}
+    password: ${DB_PASSWORD:enterprise_pass}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: EnterpriseHikariPool-Local
+      maximum-pool-size: 5       # smaller pool locally
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate         # Flyway owns the schema
+    show-sql: true               # verbose SQL in local dev
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  flyway:
+    enabled: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: enterprise-rest-api-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9000/oauth2/jwks
+          issuer-uri: http://localhost:9000
+
+logging:
+  level:
+    com.enterprise: DEBUG                  # verbose application logs
+    org.springframework.security: DEBUG    # see every security decision
+    org.hibernate.SQL: DEBUG               # print every SQL statement
+    org.hibernate.orm.jdbc.bind: TRACE     # print SQL bind parameters

@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# enterprise-soap-service — BASE configuration (shared by ALL profiles)
+# ─────────────────────────────────────────────────────────────────────────────
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: enterprise-soap-service
+
+  jpa:
+    open-in-view: false
+
+  flyway:
+    enabled: false     # Schema migrations are owned by enterprise-rest-api
+
+cxf:
+  path: /ws
+  servlet.init:
+    service-list-path: /services
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

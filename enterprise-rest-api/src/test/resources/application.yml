@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Test datasource — H2 in-memory, shared across all unit/integration tests.
+# Loaded automatically by Spring Boot for any @SpringBootTest or
+# @DataJpaTest in enterprise-rest-api and enterprise-repository modules.
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:enterprise_test_db;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  flyway:
+    enabled: false
+
+  kafka:
+    enabled: false      # no Kafka broker during tests
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+      - org.springframework.kafka.annotation.EnableKafka
+
+logging:
+  level:
+    com.enterprise: WARN
+    org.hibernate.SQL: WARN

@@ -1,0 +1,15 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PROFILE: local  (gateway)
+# Activate: mvn spring-boot:run -Dspring-boot.run.profiles=local
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  security:
+    user:
+      name: admin
+      password: admin123
+
+logging:
+  level:
+    com.enterprise: DEBUG
+    org.springframework.security: DEBUG

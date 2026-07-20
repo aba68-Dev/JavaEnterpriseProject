@@ -1,0 +1,130 @@
+version: "3.9"
+
+# Enterprise Platform — Docker Compose
+# Starts: MySQL 8, Apache Kafka, Zookeeper, and optionally the three services
+
+networks:
+  enterprise-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  kafka-data:
+
+services:
+
+  # ── MySQL 8 ──────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.2
+    container_name: enterprise-mysql
+    restart: unless-stopped
+    networks: [enterprise-net]
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE:      enterprise_db
+      MYSQL_USER:          enterprise_user
+      MYSQL_PASSWORD:      enterprise_pass
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "enterprise_user", "-penterprise_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Zookeeper ────────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: enterprise-zookeeper
+    restart: unless-stopped
+    networks: [enterprise-net]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME:   2000
+
+  # ── Apache Kafka ──────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: enterprise-kafka
+    restart: unless-stopped
+    depends_on: [zookeeper]
+    networks: [enterprise-net]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID:                          1
+      KAFKA_ZOOKEEPER_CONNECT:                  zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS:               PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:     PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME:         PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:   1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE:          "true"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      retries: 5
+
+  # ── Kafka UI (optional, comment out in production) ───────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: enterprise-kafka-ui
+    depends_on: [kafka]
+    networks: [enterprise-net]
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME:            local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  # ── OAuth2 Gateway (port 9000) ────────────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: enterprise-gateway/Dockerfile
+    container_name: enterprise-gateway
+    depends_on:
+      mysql: {condition: service_healthy}
+    networks: [enterprise-net]
+    ports:
+      - "9000:9000"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker      # ← activates application-docker.yml
+      ADMIN_USER:             admin
+      ADMIN_PASSWORD:         Admin@1234
+
+  # ── REST API (port 8080) ──────────────────────────────────────────────────────
+  rest-api:
+    build:
+      context: .
+      dockerfile: enterprise-rest-api/Dockerfile
+    container_name: enterprise-rest-api
+    depends_on:
+      mysql: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    networks: [enterprise-net]
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker      # ← activates application-docker.yml
+      DB_USERNAME:            enterprise_user
+      DB_PASSWORD:            enterprise_pass
+
+  # ── SOAP Service (port 8081) ──────────────────────────────────────────────────
+  soap-service:
+    build:
+      context: .
+      dockerfile: enterprise-soap-service/Dockerfile
+    container_name: enterprise-soap-service
+    depends_on:
+      mysql: {condition: service_healthy}
+    networks: [enterprise-net]
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker      # ← activates application-docker.yml
+      DB_USERNAME:            enterprise_user
+      DB_PASSWORD:            enterprise_pass

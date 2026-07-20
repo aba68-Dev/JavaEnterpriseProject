@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# enterprise-rest-api — BASE configuration (shared by ALL profiles)
+#
+# Profile resolution order (later overrides earlier):
+#   application.yml  ←  application-{profile}.yml
+#
+# Available profiles:
+#   local   → MySQL on localhost, verbose SQL/logging, relaxed security
+#   docker  → MySQL/Kafka/Gateway via Docker container hostnames
+#   h2      → In-memory H2, no Kafka, zero external dependencies
+#
+# Run examples:
+#   Local:  mvn spring-boot:run -Dspring-boot.run.profiles=local
+#   Docker: set via SPRING_PROFILES_ACTIVE=docker in docker-compose.yml
+#   H2:     mvn spring-boot:run -Dspring-boot.run.profiles=h2
+# ─────────────────────────────────────────────────────────────────────────────
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: enterprise-rest-api
+
+  # JPA shared settings (datasource overridden per profile)
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  # Flyway — enabled by default; h2 profile overrides to false
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger{36} - %msg%n"
