@@ -389,3 +389,37 @@ docker-compose up --build
 
 # H2 — zero dependencies, instant startup, H2 console at :8080/h2-console
 mvn spring-boot:run -pl enterprise-rest-api -Dspring-boot.run.profiles=h2
+
+
+Here's a full walkthrough of how the program executes, broken into key phases:
+
+1. Build Phase
+Maven compiles all 8 modules in dependency order:
+common → domain → repository → kafka → security → rest-api / soap-service / gateway
+
+Lombok (@Builder, @Data) and MapStruct mapper implementations are generated at compile time by annotation processors configured in the parent pom.xml.
+
+2. Startup Sequence (Docker Compose)
+Services start in strict dependency order defined in docker-compose.yml:
+
+Zookeeper (Kafka coordinator)
+Kafka (waits for Zookeeper)
+MySQL (health-checked with mysqladmin ping)
+Gateway (:9000) — generates a runtime RSA-2048 key pair; serves JWKS
+REST API (:8080) — Flyway runs V1__initial_schema.sql + V2__seed_data.sql, then Jersey and Kafka wire up
+SOAP Service (:8081) — CXF publishes the WSDL
+3. REST Request Lifecycle (the core execution path)
+For a call like POST /api/v1/orders:
+
+ResourceServerConfig — Spring Security validates the JWT Bearer token (fetches JWKS from Gateway once, then caches it). Unauthenticated → 401.
+CorrelationIdFilter — generates/propagates X-Correlation-Id into the SLF4J MDC for traceable logs.
+OrderResource — Jersey routes the request; @PreAuthorize("hasAuthority('SCOPE_write')") + @Valid bean validation run.
+OrderService.createOrder() — Facade pattern: looks up User + Products, enforces stock rules, saves Order (with @Transactional), auto-recalculates total via the Order aggregate root.
+MySQL — Hibernate executes batched INSERTs; @Version provides optimistic locking.
+KafkaEventProducer — publishes OrderCreatedEvent to order.created topic async (acks=all, idempotent).
+OrderResource — returns ApiResponse.success(dto) wrapped in HTTP 201 with a Location header.
+OrderEventConsumer — independently (in a separate thread pool) consumes the event, processes downstream logic (email, audit), and manually ACKs.
+4. Error Handling
+All exceptions bubble up to GlobalExceptionMapper which maps them sequentially: ResourceNotFoundException→404, BusinessValidationException→409, ConstraintViolationException→400, fallback→500.
+
+The artifact above contains the full interactive reference — including the OAuth2 token flow, SOAP service flow, Kafka event map, and profile configuration table.
